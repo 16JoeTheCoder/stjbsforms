@@ -1,0 +1,10 @@
+# Local development overrides (copy to .dev.vars; never commit .dev.vars).
+ENVIRONMENT=development
+# Identity used for /admin and /review on localhost when no Access JWT is present.
+# Switch users per request with the x-dev-user header (development only).
+DEV_USER_EMAIL=owner@example.com
+OWNER_EMAIL=owner@example.com
+# Leave TURNSTILE_SECRET_KEY unset to skip verification locally, or use Cloudflare's
+# always-pass test pair: site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA
+TURNSTILE_SITE_KEY=
+APP_SECRET=dev-only-insecure-secret-change-me-0123456789

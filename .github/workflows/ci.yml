@@ -1,0 +1,48 @@
+name: CI
+
+# Validation only. Deployment is done by Cloudflare Workers Builds (see SETUP.md §H),
+# so this workflow never deploys — avoiding two systems deploying the same Worker.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run test:worker
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - name: Load simulation (local runtime)
+        run: |
+          E2E_PORT=8787 bash scripts/e2e-server.sh > wrangler.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf localhost:8787/api/public/config && break; sleep 2; done
+          BASE=http://localhost:8787 STUDENTS=300 CONCURRENCY=50 node scripts/load-test.mjs
