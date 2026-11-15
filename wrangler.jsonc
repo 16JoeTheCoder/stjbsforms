@@ -39,7 +39,9 @@
     // Per-browser (keyed by the HttpOnly browser id): 30 attempts / minute.
     { "name": "BROWSER_LIMITER", "namespace_id": "4101", "simple": { "limit": 30, "period": 60 } },
     // Shared-network backstop. A whole school may share one public IP, so this is deliberately high.
-    { "name": "NETWORK_LIMITER", "namespace_id": "4102", "simple": { "limit": 1500, "period": 60 } }
+    { "name": "NETWORK_LIMITER", "namespace_id": "4102", "simple": { "limit": 10000, "period": 60 } },
+    // Global budget of *failed* class-code lookups (successes are never counted). Anti-guessing.
+    { "name": "CODE_MISS_LIMITER", "namespace_id": "4103", "simple": { "limit": 300, "period": 60 } }
   ],
 
   // Non-secret configuration (production). Secrets: see SETUP.md §G.
@@ -68,7 +70,8 @@
       ],
       "ratelimits": [
         { "name": "BROWSER_LIMITER", "namespace_id": "4201", "simple": { "limit": 30, "period": 60 } },
-        { "name": "NETWORK_LIMITER", "namespace_id": "4202", "simple": { "limit": 1500, "period": 60 } }
+        { "name": "NETWORK_LIMITER", "namespace_id": "4202", "simple": { "limit": 10000, "period": 60 } },
+        { "name": "CODE_MISS_LIMITER", "namespace_id": "4203", "simple": { "limit": 300, "period": 60 } }
       ],
       "vars": {
         "ENVIRONMENT": "staging",

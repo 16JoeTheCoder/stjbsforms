@@ -38,6 +38,8 @@ export function TeacherPicker({
   const selected = useMemo(() => teachers.find((t) => t.id === value) ?? null, [teachers, value]);
   const [query, setQuery] = useState(selected ? teacherDisplayName(selected) : "");
   const inputRef = useRef<HTMLInputElement>(null);
+  const latest = useRef({ teachers, value });
+  latest.current = { teachers, value };
 
   const items = useMemo(() => {
     const q = selected && query === teacherDisplayName(selected) ? "" : query;
@@ -61,16 +63,20 @@ export function TeacherPicker({
     inputValue: query,
     itemToString: (t) => (t ? teacherDisplayName(t) : ""),
     isItemDisabled: (t) => Boolean(unavailable?.has(t.id)),
-    defaultHighlightedIndex: 0,
+    // Highlight the first selectable match, never an already-used teacher.
+    defaultHighlightedIndex: Math.max(0, items.findIndex((t) => !unavailable?.has(t.id))),
     onInputValueChange: ({ inputValue, type }) => {
-      setQuery(inputValue ?? "");
-      if (type === useCombobox.stateChangeTypes.InputChange && inputValue === "" && value) onChange(null);
+      if (type !== useCombobox.stateChangeTypes.InputChange) setQuery(inputValue ?? "");
     },
     onSelectedItemChange: ({ selectedItem }) => {
       onChange(selectedItem?.id ?? null);
       setQuery(selectedItem ? teacherDisplayName(selectedItem) : "");
     },
     stateReducer: (state, { type, changes }) => {
+      // Belt and braces: a teacher already used elsewhere can never become the value.
+      if (changes.selectedItem && changes.selectedItem !== state.selectedItem && unavailable?.has(changes.selectedItem.id)) {
+        return { ...changes, selectedItem: state.selectedItem, inputValue: state.inputValue, isOpen: true };
+      }
       // Leaving the field never selects anything implicitly; text that isn't a
       // roster selection snaps back to the current value.
       if (type === useCombobox.stateChangeTypes.InputBlur) {
@@ -107,6 +113,22 @@ export function TeacherPicker({
         <input
           {...getInputProps({
             ref: inputRef,
+            // Update the filter synchronously: Downshift's onInputValueChange runs in an
+            // effect, so a fast Enter could otherwise act on the previous result list.
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+              setQuery(e.target.value);
+              if (e.target.value === "" && value) onChange(null);
+            },
+            // Downshift only handles blur while the menu is open; after Escape the typed
+            // text would linger. Snap back to the real selection whenever focus leaves.
+            onBlur: () => {
+              setTimeout(() => {
+                if (document.activeElement === inputRef.current) return;
+                const { teachers: ts, value: v } = latest.current;
+                const sel = ts.find((t) => t.id === v);
+                setQuery(sel ? teacherDisplayName(sel) : "");
+              }, 0);
+            },
             onFocus: () => {
               if (!isOpen) openMenu();
               if (window.innerWidth < 640) {

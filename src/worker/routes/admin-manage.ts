@@ -86,6 +86,7 @@ adminManage.get("/overview", async (c) => {
       environment: c.env.ENVIRONMENT,
       turnstile: Boolean(c.env.TURNSTILE_SECRET_KEY && c.env.TURNSTILE_SITE_KEY),
       accessSync: Boolean(c.env.CF_API_TOKEN && c.env.ACCESS_GROUP_ID),
+      placeholders: [c.env.ACCESS_AUD, c.env.ACCESS_TEAM_DOMAIN, c.env.TURNSTILE_SITE_KEY].some((v) => !v || /REPLACE/i.test(v)),
       serverTime: nowIso(),
     },
   });
@@ -301,6 +302,9 @@ adminManage.get("/teachers", async (c) => {
 
 adminManage.post("/teachers", async (c) => {
   const body = await readJson(c, teacherCreate);
+  const key = searchKey(body.honorific, body.fullName);
+  const exists = await c.env.DB.prepare("SELECT id FROM teachers WHERE search_name = ?").bind(key).first();
+  if (exists) throw conflict("That teacher is already on the roster.");
   const id = uid("t");
   const now = nowIso();
   await c.env.DB.batch([
@@ -323,6 +327,8 @@ adminManage.patch("/teachers/:id", async (c) => {
   const honorific = body.honorific ?? before.honorific;
   const fullName = body.fullName ?? before.full_name;
   const active = body.active === undefined ? before.active : body.active ? 1 : 0;
+  const clash = await c.env.DB.prepare("SELECT id FROM teachers WHERE search_name = ? AND id != ?").bind(searchKey(honorific, fullName), id).first();
+  if (clash) throw conflict("Another teacher already has that name.");
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE teachers SET honorific = ?, full_name = ?, search_name = ?, active = ?, updated_at = ? WHERE id = ?").bind(
       honorific,
@@ -357,7 +363,7 @@ adminManage.post("/teachers/import", async (c) => {
     if (tid) {
       updated++;
       stmts.push(
-        db.prepare("UPDATE teachers SET honorific = ?, full_name = ?, active = 1, updated_at = ? WHERE id = ?").bind(r.honorific, r.fullName, now, tid),
+        db.prepare("UPDATE teachers SET honorific = ?, full_name = ?, updated_at = ? WHERE id = ?").bind(r.honorific, r.fullName, now, tid),
       );
     } else {
       created++;
@@ -564,10 +570,21 @@ adminManage.patch("/users/:id", async (c) => {
     .bind(newRole, newActive ? 1 : 0, nowIso(), id, loses ? 1 : 0, id)
     .run();
   if (res.meta.changes === 0) throw new ApiError(409, "LAST_ADMIN", "At least one active administrator must remain.");
+  let released = 0;
+  if (target.active === 1 && !newActive) {
+    // Their pending work goes back to the unassigned queue; reviewed notes keep their history.
+    const r = await c.env.DB.prepare(
+      "UPDATE notes SET assigned_reviewer_id = NULL, assigned_at = NULL, updated_at = ? WHERE assigned_reviewer_id = ? AND status = 'pending'",
+    )
+      .bind(nowIso(), id)
+      .run();
+    released = r.meta.changes;
+  }
   await auditStmt(c.env.DB, actor, "user.update", "user", id, {
     email: target.email,
     before: { role: target.role, active: target.active === 1 },
     after: { role: newRole, active: newActive },
+    releasedPendingNotes: released,
   }).run();
   const sync = await syncAccessGroup(c.env);
   await c.env.DB.prepare("UPDATE users SET access_sync = ? WHERE id = ?").bind(sync, id).run();
@@ -593,7 +610,9 @@ adminManage.patch("/settings", async (c) => {
       ).bind(key, value, now),
     );
   }
-  if (body.opensAt && body.closesAt && body.opensAt >= body.closesAt) {
+  const opens = body.opensAt === undefined ? before.opensAt : body.opensAt;
+  const closes = body.closesAt === undefined ? before.closesAt : body.closesAt;
+  if (opens && closes && opens >= closes) {
     throw new ApiError(400, "VALIDATION", "Closing time must be after opening time.");
   }
   if (!stmts.length) return c.json(before);
@@ -704,10 +723,20 @@ adminManage.get("/export/moderation.csv", async (c) => {
 adminManage.get("/export/backup.json", async (c) => {
   const tables = ["settings", "grades", "users", "classes", "teachers", "awards", "submissions", "votes", "notes", "note_events", "audit_log"];
   const out: Record<string, unknown[]> = {};
-  for (const t of tables) {
-    const { results } = await c.env.DB.prepare(`SELECT * FROM ${t}`).all();
-    out[t] = results;
-  }
+  // One batch = one consistent snapshot. Browser hashes are operational only and omitted.
+  const res = await c.env.DB.batch(
+    tables.map((t) => c.env.DB.prepare(t === "submissions" ? "SELECT * FROM submissions" : `SELECT * FROM ${t}`)),
+  );
+  tables.forEach((t, i) => {
+    out[t] = (res[i]!.results as Record<string, unknown>[]).map((r) => {
+      if (t === "submissions") {
+        const { browser_hash: _b, ...rest } = r;
+        void _b;
+        return rest;
+      }
+      return r;
+    });
+  });
   await auditStmt(c.env.DB, c.get("user"), "export.backup", "system", null).run();
   return new Response(JSON.stringify({ exportedAt: nowIso(), format: "stjb-thanks-backup-v1", tables: out }), {
     headers: {

@@ -62,7 +62,8 @@ export function toReviewerNote(r: NoteRow): ReviewerNote {
     status: r.status,
     version: r.version,
     flags: noteFlags(r).filter((f) => f !== "over_quota" && f !== "submission_voided"),
-    createdAt: r.created_at,
+    // Exact timestamps would let reviewers link a student's three notes; reviewers get none.
+    createdAt: "",
     statusReason: r.status_reason,
   };
 }
@@ -70,6 +71,7 @@ export function toReviewerNote(r: NoteRow): ReviewerNote {
 export function toAdminNote(r: NoteRow): AdminNote {
   return {
     ...toReviewerNote(r),
+    createdAt: r.created_at,
     flags: noteFlags(r),
     originalBody: r.body,
     displayBody: r.display_body,

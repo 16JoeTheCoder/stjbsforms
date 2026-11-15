@@ -23,7 +23,7 @@ function StepHeading({ title, lead }: { title: string; lead?: string }) {
   );
 }
 
-function NavRow({ back, next, nextLabel, nextDisabled }: { back?: () => void; next: () => void; nextLabel: string; nextDisabled?: boolean }) {
+function NavRow({ back, next, nextLabel }: { back?: () => void; next: () => void; nextLabel: string; nextDisabled?: boolean }) {
   return (
     <div className="sticky bottom-0 z-20 -mx-4 mt-10 flex items-center justify-between gap-3 border-t border-line bg-paper/95 px-4 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-paper/85">
       {back ? (
@@ -33,7 +33,7 @@ function NavRow({ back, next, nextLabel, nextDisabled }: { back?: () => void; ne
       ) : (
         <span />
       )}
-      <button type="button" className="btn-primary" onClick={next} aria-disabled={nextDisabled || undefined}>
+      <button type="button" className="btn-primary" onClick={next}>
         {nextLabel} <ArrowRight aria-hidden className="size-4" />
       </button>
     </div>
@@ -535,21 +535,24 @@ export function ReviewStep(props: {
 export function DoneStep({ draft, form, onClear }: { draft: Draft; form: PublicFormData | null; onClear: () => void }) {
   const [confirm, setConfirm] = useState(false);
   const r = draft.receipt!;
+  const earlier = Boolean(draft.receiptIsEarlier);
   const tName = (id: string | null) => {
     const t = form?.teachers.find((x) => x.id === id);
     return t ? teacherDisplayName(t) : "your teacher";
   };
   return (
     <section className="pt-4 sm:pt-10">
-      <h1 className="font-serif text-[44px] leading-[1.02] tracking-[-0.02em] sm:text-[60px]">Thank you.</h1>
+      <h1 className="font-serif text-[44px] leading-[1.02] tracking-[-0.02em] sm:text-[60px]">
+        {earlier ? "Already sent from this browser." : "Thank you."}
+      </h1>
       <p className="mt-4 max-w-[50ch] text-[17px] text-ink-2">
-        {r.duplicate && !draft.letters.some((l) => l.body)
-          ? "This browser has already sent a response. Only one response per browser is accepted."
+        {earlier
+          ? "A response was already sent from this browser, so this one was not sent. Only one response per browser is accepted. If someone else used this device, they can submit from their own phone or browser."
           : "Your response was received. Your letters will be reviewed and printed for the appreciation wall."}
       </p>
       <div className="card mt-8 grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <div>
-          <p className="text-sm text-muted">Receipt</p>
+          <p className="text-sm text-muted">{earlier ? "Earlier receipt" : "Receipt"}</p>
           <p className="mt-0.5 text-[22px] font-semibold tracking-[0.06em] tabular">{r.receiptCode}</p>
         </div>
         <div>
@@ -559,7 +562,7 @@ export function DoneStep({ draft, form, onClear }: { draft: Draft; form: PublicF
       </div>
       {draft.letters.some((l) => l.body) ? (
         <details className="group mt-6">
-          <summary className="btn-ghost -ml-3 cursor-pointer list-none">View what you sent</summary>
+          <summary className="btn-ghost -ml-3 cursor-pointer list-none">{earlier ? "View your unsent letters" : "View what you sent"}</summary>
           <div className="mt-3 space-y-3">
             {draft.letters.map((l, i) => (
               <figure key={i} className="card px-4 py-3.5">

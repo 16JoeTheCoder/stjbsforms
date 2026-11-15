@@ -28,20 +28,19 @@ reviewRoutes.get("/notes", async (c) => {
     where.push("n.status = ?");
     args.push(status);
   }
+  // Ordered by random note id (not time) so a student's three notes aren't adjacent.
   const cur = decodeCursor(q.data.cursor);
   if (cur) {
-    where.push(order === "oldest" ? "(n.created_at, n.id) > (?, ?)" : "(n.created_at, n.id) < (?, ?)");
-    args.push(cur.createdAt, cur.id);
+    where.push(order === "oldest" ? "n.id > ?" : "n.id < ?");
+    args.push(cur.id);
   }
   const dir = order === "oldest" ? "ASC" : "DESC";
-  const { results } = await c.env.DB.prepare(
-    `${NOTE_SELECT} WHERE ${where.join(" AND ")} ORDER BY n.created_at ${dir}, n.id ${dir} LIMIT ?`,
-  )
+  const { results } = await c.env.DB.prepare(`${NOTE_SELECT} WHERE ${where.join(" AND ")} ORDER BY n.id ${dir} LIMIT ?`)
     .bind(...args, limit + 1)
     .all<NoteRow>();
   const items = results.slice(0, limit).map(toReviewerNote);
   const last = results.length > limit ? results[limit - 1]! : null;
-  const page: Page<ReviewerNote> = { items, nextCursor: last ? encodeCursor(last.created_at, last.id) : null };
+  const page: Page<ReviewerNote> = { items, nextCursor: last ? encodeCursor("id", last.id) : null };
   return c.json(page);
 });
 

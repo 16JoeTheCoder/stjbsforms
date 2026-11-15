@@ -3,6 +3,7 @@
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { mosaicOrder } from "../../shared/shuffle";
+import { woffToSfnt } from "./woff";
 
 export interface FontSet {
   /** Regular body faces in fallback order (e.g. latin, latin-ext, vietnamese, emoji subsets...). */
@@ -28,6 +29,32 @@ export interface LayoutProblem {
 
 interface FKFont {
   hasGlyphForCodePoint(cp: number): boolean;
+  layout(text: string): { glyphs: { advanceWidth: number }[] };
+  unitsPerEm: number;
+  familyName?: string;
+}
+
+/** One font file: measured with fontkit, embedded into the PDF only if actually used. */
+/** Advance exactly as pdf-lib draws it: glyph advances without GPOS kerning. */
+function advance(fk: FKFont, text: string, size: number): number {
+  let w = 0;
+  for (const g of fk.layout(text).glyphs) w += g.advanceWidth;
+  return (w / fk.unitsPerEm) * size;
+}
+
+class Face {
+  pdf: PDFFont | null = null;
+  readonly fk: FKFont;
+  constructor(readonly bytes: Uint8Array) {
+    this.fk = fontkit.create(bytes) as unknown as FKFont;
+  }
+  /**
+   * Emoji faces are embedded whole: pdf-lib's subsetter drops some of their glyphs
+   * (they render as blank gaps). Text faces are subset to keep files small.
+   */
+  get full() {
+    return /emoji/i.test(this.fk.familyName ?? "");
+  }
 }
 
 const A4: [number, number] = [595.28, 841.89];
@@ -56,10 +83,20 @@ interface Run {
 
 class Typesetter {
   private widthCache = new Map<string, number>();
-  constructor(
-    private fk: FKFont[],
-    private pdf: PDFFont[],
-  ) {}
+  private fk: FKFont[];
+  constructor(private faces: Face[]) {
+    this.fk = faces.map((f) => f.fk);
+  }
+
+  /** Embeds every face needed to draw `texts` (call before draw). */
+  async embedFor(doc: PDFDocument, texts: string[]) {
+    const need = new Set<number>();
+    for (const t of texts) for (const r of this.runs(t)) if (r.text) need.add(r.font);
+    for (const i of need) {
+      const f = this.faces[i]!;
+      if (!f.pdf) f.pdf = await doc.embedFont(f.bytes, { subset: !f.full });
+    }
+  }
 
   /** Index of the first font that covers every non-ignorable code point of the grapheme, or -1. */
   fontFor(g: string): number {
@@ -94,7 +131,10 @@ class Typesetter {
     const key = `${size}|${text}`;
     let w = this.widthCache.get(key);
     if (w === undefined) {
-      w = this.runs(text).reduce((a, r) => a + this.pdf[r.font]!.widthOfTextAtSize(r.text, size), 0);
+      w = this.runs(text).reduce((a, r) => {
+        const fk = this.fk[r.font]!;
+        return a + (r.text ? advance(fk, r.text, size) : 0);
+      }, 0);
       this.widthCache.set(key, w);
     }
     return w;
@@ -141,22 +181,30 @@ class Typesetter {
     let cx = x;
     for (const r of this.runs(text)) {
       if (!r.text) continue;
-      page.drawText(r.text, { x: cx, y, size, font: this.pdf[r.font]!, color });
-      cx += this.pdf[r.font]!.widthOfTextAtSize(r.text, size);
+      const face = this.faces[r.font]!;
+      if (!face.pdf) throw new Error("Font not embedded before drawing");
+      page.drawText(r.text, { x: cx, y, size, font: face.pdf, color });
+      cx += advance(face.fk, r.text, size);
     }
   }
 }
 
-async function setup(fonts: FontSet) {
+const sfntCache = new WeakMap<Uint8Array, Uint8Array>();
+const sfnt = (b: Uint8Array) => {
+  let v = sfntCache.get(b);
+  if (!v) sfntCache.set(b, (v = woffToSfnt(b)));
+  return v;
+};
+
+async function setup(input: FontSet) {
+  const fonts = { regular: input.regular.map(sfnt), italic: input.italic.map(sfnt) };
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const reg = await Promise.all(fonts.regular.map((b) => doc.embedFont(b, { subset: true })));
-  const ita = await Promise.all(fonts.italic.map((b) => doc.embedFont(b, { subset: true })));
-  const fkReg = fonts.regular.map((b) => fontkit.create(b) as unknown as FKFont);
-  const fkIta = fonts.italic.map((b) => fontkit.create(b) as unknown as FKFont);
-  // Italic chain falls back to the regular emoji/extended faces after its own.
-  const body = new Typesetter(fkReg, reg);
-  const salutation = new Typesetter([...fkIta, ...fkReg], [...ita, ...reg]);
+  const reg = fonts.regular.map((b) => new Face(b));
+  const ita = fonts.italic.map((b) => new Face(b));
+  // Italic chain falls back to the regular extended/emoji faces after its own.
+  const body = new Typesetter(reg);
+  const salutation = new Typesetter([...ita, ...reg]);
   return { doc, body, salutation };
 }
 
@@ -240,6 +288,12 @@ export async function buildMosaic(
 
   doc.setTitle(opts.title ?? "Teacher's Day appreciation wall");
   doc.setCreator("STJB Thanks");
+  await body.embedFor(doc, [
+    ...laid.flatMap((l) => l.lines),
+    "— from the Student Council",
+    `${opts.title ?? "Teacher's Day"}  ·  sheet 0123456789 of`,
+  ]);
+  await salutation.embedFor(doc, laid.flatMap((l) => l.head));
   for (let p = 0; p < pages; p++) {
     const page = doc.addPage(A4);
     for (let i = 0; i < perPage; i++) {
@@ -319,6 +373,12 @@ export async function buildKeepsake(
 
   doc.setTitle(`${opts.title ?? "Teacher's Day"} — ${teacherName}`);
   doc.setCreator("STJB Thanks");
+  await body.embedFor(doc, [
+    ...items.flat(),
+    opts.title ?? "Happy Teacher's Day",
+    "0123456789 / message messages from your students",
+  ]);
+  await salutation.embedFor(doc, [`for ${teacherName}`]);
   let page = doc.addPage(A4);
   let y = H - margin - 34;
   body.draw(page, opts.title ?? "Happy Teacher's Day", margin, y, 30);

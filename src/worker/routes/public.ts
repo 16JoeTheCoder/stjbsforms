@@ -38,8 +38,12 @@ function browserId(c: Context<AppEnv>, issue: boolean): string | null {
   return v;
 }
 
-async function limit(binding: RateLimit | undefined, key: string): Promise<void> {
-  if (!binding) return;
+async function limit(c: Context<AppEnv>, binding: RateLimit | undefined, key: string): Promise<void> {
+  if (!binding) {
+    if (isDev(c.env)) return;
+    // Fail closed: a missing binding means a misconfigured deployment.
+    throw new ApiError(503, "CONFIG", "Server is not configured (rate limiter).");
+  }
   const { success } = await binding.limit({ key });
   if (!success) throw new ApiError(429, "RATE_LIMITED", "Too many attempts. Wait a minute and try again.");
 }
@@ -103,16 +107,34 @@ async function classByCode(env: Env, code: string): Promise<ClassRow | null> {
     .first<ClassRow>();
 }
 
+/**
+ * Code-guessing defence that never counts legitimate successes: every *failed*
+ * lookup is counted against a global budget; once exhausted, this isolate answers
+ * all lookups (valid or not) with 429 for a minute, so guesses yield no signal.
+ */
+let codeGateUntil = 0;
+async function recordCodeMiss(c: Context<AppEnv>) {
+  const b = c.env.CODE_MISS_LIMITER;
+  if (!b) return;
+  const { success } = await b.limit({ key: "class-code-miss" });
+  if (!success) codeGateUntil = Date.now() + 60_000;
+}
+function codeGate() {
+  if (Date.now() < codeGateUntil) throw new ApiError(429, "RATE_LIMITED", "Too many attempts right now. Wait a minute and try again.");
+}
+
 publicRoutes.post("/class-access", async (c) => {
+  codeGate();
   const bid = browserId(c, true)!;
-  await limit(c.env.NETWORK_LIMITER, networkKey(c, "code"));
-  await limit(c.env.BROWSER_LIMITER, `code:${bid}`);
+  await limit(c, c.env.NETWORK_LIMITER, networkKey(c, "code"));
+  await limit(c, c.env.BROWSER_LIMITER, `code:${bid}`);
   const { code: raw } = await readJson(c, classAccessInput, 2048);
   const code = normalizeClassCode(raw);
   if (!isValidClassCode(code)) {
     throw new ApiError(400, "INVALID_CODE", "Class codes are 5 letters or numbers. Check the code and try again.");
   }
   const cls = await classByCode(c.env, code);
+  if (!cls) await recordCodeMiss(c);
   if (!cls || cls.status === "disabled") {
     throw new ApiError(404, "INVALID_CODE", "We couldn't find that class code. Check it with your class representative.");
   }
@@ -133,7 +155,7 @@ async function receiptByKey(env: Env, key: string): Promise<SubmissionReceipt | 
 publicRoutes.get("/submissions/:key", async (c) => {
   const key = idempotencyKey.safeParse(c.req.param("key"));
   if (!key.success) throw new ApiError(400, "BAD_REQUEST", "Invalid key.");
-  await limit(c.env.NETWORK_LIMITER, networkKey(c, "receipt"));
+  await limit(c, c.env.BROWSER_LIMITER, `receipt:${browserId(c, true)}`);
   const r = await receiptByKey(c.env, key.data);
   c.header("cache-control", "no-store");
   if (!r) return c.json({ found: false }, 404);
@@ -161,9 +183,10 @@ async function verifyTurnstile(c: Context<AppEnv>, token: string, idem: string):
   } catch {
     throw new ApiError(503, "TURNSTILE_FAILED", "We couldn't verify the check just now. Your answers are saved — try again.");
   }
-  const testKey = secret.startsWith("1x0000") || secret.startsWith("2x0000") || secret.startsWith("3x0000");
-  const hostOk = testKey || !env.PUBLIC_HOST || !outcome.hostname || outcome.hostname === env.PUBLIC_HOST;
-  const actionOk = testKey || !outcome.action || outcome.action === "submit";
+  // Cloudflare's documented test secrets don't return real action/hostname; never honoured in production.
+  const testKey = env.ENVIRONMENT !== "production" && /^[123]x0{20,}/.test(secret);
+  const hostOk = testKey || (Boolean(env.PUBLIC_HOST) && outcome.hostname === env.PUBLIC_HOST);
+  const actionOk = testKey || outcome.action === "submit";
   if (!outcome.success || !hostOk || !actionOk) {
     void idem;
     throw new ApiError(400, "TURNSTILE_FAILED", "The verification check expired or failed. Complete it again and resubmit.");
@@ -178,8 +201,8 @@ function isUniqueError(e: unknown, column: string): boolean {
 publicRoutes.post("/submissions", async (c) => {
   const env = c.env;
   const bid = browserId(c, true)!;
-  await limit(env.NETWORK_LIMITER, networkKey(c, "submit"));
-  await limit(env.BROWSER_LIMITER, `submit:${bid}`);
+  await limit(c, env.NETWORK_LIMITER, networkKey(c, "submit"));
+  await limit(c, env.BROWSER_LIMITER, `submit:${bid}`);
   const input = await readJson(c, submissionInput, 64 * 1024);
 
   // 1. Idempotent replay: same key -> same result, regardless of current state.
@@ -209,8 +232,10 @@ publicRoutes.post("/submissions", async (c) => {
   }
 
   // 4. Class
+  codeGate();
   const code = normalizeClassCode(input.classCode);
   const cls = isValidClassCode(code) ? await classByCode(env, code) : null;
+  if (!cls) await recordCodeMiss(c);
   if (!cls || (input.classId && cls.id !== input.classId)) {
     const known = input.classId
       ? await env.DB.prepare("SELECT status FROM classes WHERE id = ?").bind(input.classId).first<{ status: string }>()
@@ -321,13 +346,16 @@ publicRoutes.post("/submissions", async (c) => {
   try {
     await env.DB.batch(stmts);
   } catch (e) {
-    if (isUniqueError(e, "")) {
+    if (isUniqueError(e, "submissions.")) {
       // Lost a race with a concurrent retry of the same submission: return its receipt.
       const r = await receiptByKey(env, input.idempotencyKey);
       if (r) return c.json({ ...r, duplicate: true } satisfies SubmissionReceipt);
     }
     if (isUniqueError(e, "browser_hash")) {
-      throw new ApiError(409, "ALREADY_SUBMITTED", "This browser has already sent a response.");
+      const prev = await env.DB.prepare("SELECT receipt_code, created_at FROM submissions WHERE browser_hash = ?")
+        .bind(browserHash)
+        .first<{ receipt_code: string; created_at: string }>();
+      throw new ApiError(409, "ALREADY_SUBMITTED", "This browser has already sent a response.", prev ? { receiptCode: prev.receipt_code, submittedAt: prev.created_at } : undefined);
     }
     throw e;
   }

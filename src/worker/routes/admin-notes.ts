@@ -187,6 +187,14 @@ adminNotes.post("/notes/council", async (c) => {
   if (problem) throw new ApiError(400, "VALIDATION", "Notes must be 100–400 characters.", { problem });
   const teacher = await c.env.DB.prepare("SELECT id FROM teachers WHERE id = ?").bind(body.teacherId).first();
   if (!teacher) throw notFound("Teacher not found");
+  const hash = await sha256Hex(normalizeForCompare(text));
+  const dupe = await c.env.DB.prepare("SELECT id FROM notes WHERE source = 'council' AND teacher_id = ? AND body_hash = ?")
+    .bind(body.teacherId, hash)
+    .first<{ id: string }>();
+  if (dupe) {
+    const row = await c.env.DB.prepare(`${NOTE_SELECT} WHERE n.id = ?`).bind(dupe.id).first<NoteRow>();
+    return c.json(toAdminNote(row!), 200);
+  }
   const id = uid("note");
   const now = nowIso();
   const status = body.approve ? "approved" : "pending";
@@ -199,7 +207,7 @@ adminNotes.post("/notes/council", async (c) => {
       id,
       body.teacherId,
       text,
-      await sha256Hex(normalizeForCompare(text)),
+      hash,
       countChars(text),
       status,
       user.id,
@@ -230,9 +238,8 @@ adminNotes.get("/assignments", async (c) => {
               COALESCE(SUM(n.status = 'approved'), 0) AS approved,
               COALESCE(SUM(n.status = 'trashed'), 0) AS trashed
          FROM users u
-         LEFT JOIN notes n ON n.assigned_reviewer_id = u.id
-         LEFT JOIN submissions s ON s.id = n.submission_id
-        WHERE (n.id IS NULL OR ${ACTIVE})
+         LEFT JOIN (notes n LEFT JOIN submissions s ON s.id = n.submission_id)
+           ON n.assigned_reviewer_id = u.id AND ${ACTIVE}
         GROUP BY u.id ORDER BY u.role DESC, u.email`,
     ).all(),
     db.prepare(
@@ -507,12 +514,19 @@ adminNotes.post("/submissions/:id/restore", async (c) => {
     .bind(id)
     .first<{ void_reason: string }>();
   if (!prev) throw new ApiError(409, "CONFLICT", "This submission is not voided.");
-  const [res] = await c.env.DB.batch([
+  const now = nowIso();
+  const [audit, res] = await c.env.DB.batch([
+    // audit first, guarded by the same predicate, so it exists iff the restore happens
+    c.env.DB.prepare(
+      `INSERT INTO audit_log (id, actor_user_id, actor_email, action, entity_type, entity_id, detail, created_at)
+       SELECT ?, ?, ?, 'submission.restore', 'submission', id, json_object('previousReason', void_reason), ? FROM submissions
+        WHERE id = ? AND status = 'voided'`,
+    ).bind(uid("au"), user.id, user.email, now, id),
     c.env.DB.prepare(
       "UPDATE submissions SET status = 'active', void_reason = NULL, voided_by = NULL, voided_at = NULL WHERE id = ? AND status = 'voided'",
     ).bind(id),
-    auditStmt(c.env.DB, user, "submission.restore", "submission", id, { previousReason: prev.void_reason }),
   ]);
+  void audit;
   if ((res?.meta.changes ?? 0) === 0) throw new ApiError(409, "CONFLICT", "This submission is not voided.");
   return c.json({ ok: true });
 });

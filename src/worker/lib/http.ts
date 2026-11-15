@@ -29,8 +29,25 @@ export async function readJson<T extends z.ZodTypeAny>(c: Context, schema: T, ma
   }
   const len = Number(c.req.header("content-length") ?? "0");
   if (len > maxBytes) throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Request is too large.");
-  const buf = await c.req.arrayBuffer();
-  if (buf.byteLength > maxBytes) throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Request is too large.");
+  // Stream with a hard cap so chunked bodies without Content-Length can't exhaust memory.
+  const reader = c.req.raw.body?.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  if (reader) {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel();
+        throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Request is too large.");
+      }
+      parts.push(value);
+    }
+  }
+  const buf = new Uint8Array(size);
+  let off = 0;
+  for (const p of parts) (buf.set(p, off), (off += p.byteLength));
   let raw: unknown;
   try {
     raw = JSON.parse(new TextDecoder().decode(buf));

@@ -14,7 +14,7 @@ describe("class access", () => {
   it("accepts a valid code case-insensitively and returns the class", async () => {
     const r = await call("/api/public/class-access", { method: "POST", json: { code: s.classes[1]!.code.toLowerCase() } });
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ classLabel: "Junior College 2A", gradeLabel: "JC2" });
+    expect(await json(r)).toMatchObject({ classLabel: "Junior College 2A", gradeLabel: "JC2" });
   });
   it("rejects malformed and ambiguous codes", async () => {
     for (const code of ["ABCD", "ABCDEF", "O0I1L", "K7M4"]) {
@@ -146,7 +146,7 @@ describe("idempotency and browser restriction", () => {
     const body = submission(s);
     const c = cookie();
     const rs = await Promise.all(Array.from({ length: 5 }, () => submit(body, c)));
-    const codes = new Set(await Promise.all(rs.map(async (r) => (await r.json()).receiptCode)));
+    const codes = new Set(await Promise.all(rs.map(async (r) => (await json(r)).receiptCode)));
     expect(codes.size).toBe(1);
     const sub = await env.DB.prepare("SELECT id FROM submissions WHERE idempotency_key = ?").bind(body.idempotencyKey).all();
     expect(sub.results.length).toBe(1);

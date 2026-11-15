@@ -90,7 +90,9 @@ async function loadUser(env: Env, email: string): Promise<UserRow | null> {
     .bind(email)
     .first<UserRow>();
   const owner = env.OWNER_EMAIL?.trim().toLowerCase();
-  if (!row && owner && email === owner) {
+  // Placeholder addresses are never bootstrapped outside development.
+  const placeholder = !owner || (!isDev(env) && /@example\.(com|org|net)$/.test(owner));
+  if (!row && owner && !placeholder && email === owner) {
     // Bootstrap: the configured owner becomes the first administrator.
     const now = nowIso();
     await env.DB.prepare(

@@ -48,7 +48,7 @@ const STEPS: { stage: Stage; label: string }[] = [
 export type SubmitIssue = { tone: "warn" | "bad"; title: string; body?: string; goto?: Stage };
 
 export function StudentApp() {
-  const { draft, update, reset, storageOk } = useDraft();
+  const { draft, update, reset, storageOk, syncedFromOtherTab } = useDraft();
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [form, setForm] = useState<PublicFormData | null>(cachedForm);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function StudentApp() {
 
   const finish = useCallback(
     (receipt: SubmissionReceipt, earlier = false) => {
-      update((d) => ({ ...d, receipt: { ...receipt, duplicate: earlier || receipt.duplicate }, pendingSubmit: false, stage: "done" }), {
+      update((d) => ({ ...d, receipt, receiptIsEarlier: earlier, pendingSubmit: false, stage: "done" }), {
         immediate: true,
       });
       setIssue(null);
@@ -274,6 +274,11 @@ export function StudentApp() {
         {!storageOk ? (
           <Banner tone="warn" className="mb-5" title="This browser isn't saving your progress">
             Private browsing or full storage can block saving. Keep this tab open until you submit.
+          </Banner>
+        ) : null}
+        {syncedFromOtherTab && draft.stage !== "done" ? (
+          <Banner tone="info" className="mb-5">
+            Updated with changes you made in another tab.
           </Banner>
         ) : null}
         {notice ? (

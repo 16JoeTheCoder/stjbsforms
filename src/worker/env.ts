@@ -5,6 +5,8 @@ export interface Env {
   BROWSER_LIMITER?: RateLimit;
   /** Generous per-network backstop: a whole school shares one IP, so keep this high */
   NETWORK_LIMITER?: RateLimit;
+  /** Global budget of failed class-code lookups (anti-guessing) */
+  CODE_MISS_LIMITER?: RateLimit;
 
   /** "production" | "staging" | "development". Dev-only shortcuts require "development". */
   ENVIRONMENT: string;

@@ -47,7 +47,7 @@ describe("Cloudflare Access JWT validation", () => {
   it("accepts a valid token for an allow-listed admin", async () => {
     const r = await staff("/api/me", OWNER);
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ email: OWNER, role: "admin", isOwner: true });
+    expect(await json(r)).toMatchObject({ email: OWNER, role: "admin", isOwner: true });
   });
   it("rejects missing, wrong-audience, wrong-issuer, expired and forged tokens", async () => {
     expect((await staff("/api/me", null)).status).toBe(401);

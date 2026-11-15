@@ -30,11 +30,11 @@ describe("note moderation", () => {
     const [n] = (await notesOf(sub)).results;
     let r = await setStatus(n!.id, "approved", n!.version);
     expect(r.status).toBe(200);
-    let v = (await r.json()).version;
+    let v = (await json(r)).version;
     r = await setStatus(n!.id, "trashed", v);
-    v = (await r.json()).version;
+    v = (await json(r)).version;
     r = await setStatus(n!.id, "pending", v);
-    expect((await r.json()).status).toBe("pending");
+    expect((await json(r)).status).toBe("pending");
     const ev = await env.DB.prepare("SELECT prev_status, new_status, actor_user_id FROM note_events WHERE note_id = ? AND action = 'status' ORDER BY created_at")
       .bind(n!.id)
       .all<{ prev_status: string; new_status: string; actor_user_id: string }>();
@@ -68,7 +68,7 @@ describe("note moderation", () => {
     await call("/api/admin/assignments/assign", { method: "POST", json: { noteIds: notes.map((n) => n.id), reviewerId: revIds[0] }, as: OWNER });
     let r = await setStatus(notes[0]!.id, "trashed", notes[0]!.version, REV[0], "/api/review/notes");
     expect(r.status).toBe(200);
-    const v = (await r.json()).version;
+    const v = (await json(r)).version;
     await call("/api/admin/settings", { method: "PATCH", json: { reviewerCanRestore: false }, as: OWNER });
     r = await setStatus(notes[0]!.id, "pending", v, REV[0], "/api/review/notes");
     expect(r.status).toBe(403);
