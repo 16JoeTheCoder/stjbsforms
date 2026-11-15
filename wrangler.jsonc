@@ -1,0 +1,84 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Worker name must match the Worker you connect in Workers Builds.
+  "name": "stjb-thanks",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "observability": { "enabled": true },
+
+  // Never expose the Worker on *.workers.dev or preview URLs: only the two custom domains.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Custom domains. Uncomment once the zone stjbscouncil.com is ready (see SETUP.md §D).
+  // "routes": [
+  //   { "pattern": "thanks.stjbscouncil.com", "custom_domain": true },
+  //   { "pattern": "thanks-admin.stjbscouncil.com", "custom_domain": true }
+  // ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stjb-thanks-prod",
+      // Replace with the id printed by `npx wrangler d1 create stjb-thanks-prod`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "ratelimits": [
+    // Per-browser (keyed by the HttpOnly browser id): 30 attempts / minute.
+    { "name": "BROWSER_LIMITER", "namespace_id": "4101", "simple": { "limit": 30, "period": 60 } },
+    // Shared-network backstop. A whole school may share one public IP, so this is deliberately high.
+    { "name": "NETWORK_LIMITER", "namespace_id": "4102", "simple": { "limit": 1500, "period": 60 } }
+  ],
+
+  // Non-secret configuration (production). Secrets: see SETUP.md §G.
+  "vars": {
+    "ENVIRONMENT": "production",
+    "PUBLIC_HOST": "thanks.stjbscouncil.com",
+    "ADMIN_HOST": "thanks-admin.stjbscouncil.com",
+    "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
+    "ACCESS_AUD": "REPLACE-WITH-ACCESS-APPLICATION-AUD",
+    "OWNER_EMAIL": "owner@example.com",
+    "TURNSTILE_SITE_KEY": "REPLACE-WITH-TURNSTILE-SITE-KEY"
+  },
+
+  "env": {
+    // `npx wrangler deploy --env staging` -> Worker "stjb-thanks-staging"
+    "staging": {
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "stjb-thanks-staging",
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ratelimits": [
+        { "name": "BROWSER_LIMITER", "namespace_id": "4201", "simple": { "limit": 30, "period": 60 } },
+        { "name": "NETWORK_LIMITER", "namespace_id": "4202", "simple": { "limit": 1500, "period": 60 } }
+      ],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "PUBLIC_HOST": "thanks-staging.stjbscouncil.com",
+        "ADMIN_HOST": "thanks-admin-staging.stjbscouncil.com",
+        "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
+        "ACCESS_AUD": "REPLACE-WITH-STAGING-ACCESS-AUD",
+        "OWNER_EMAIL": "owner@example.com",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+      }
+    }
+  }
+}
