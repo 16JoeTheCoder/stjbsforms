@@ -1,0 +1,4 @@
+class,grade,expected_students,soft_quota
+Secondary 1A,Sec 1,25,30
+Secondary 2B,Sec 2,26,
+Junior College 2A,JC2,22,27

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Link } from "wouter";
 import clsx from "clsx";
@@ -45,7 +45,7 @@ function Queue({ me }: { me: Me }) {
     getNextPageParam: (l) => l.nextCursor ?? undefined,
     refetchOnWindowFocus: false,
   });
-  const items = q.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
 
   useEffect(() => setFocus(0), [tab]);
 

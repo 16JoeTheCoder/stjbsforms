@@ -79,11 +79,11 @@ export function AdminShell({ me }: { me: Me }) {
         {me.email}
       </p>
       <p className="text-muted">Administrator{me.isOwner ? " · owner" : ""}</p>
-      <div className="mt-2 flex gap-1">
-        <Link href="~/review" className="btn-ghost btn-sm -ml-2">
+      <div className="mt-2 flex flex-col items-start">
+        <Link href="~/review" className="btn-ghost btn-sm -ml-3.5 whitespace-nowrap">
           My review queue
         </Link>
-        <a href={me.logoutUrl} className="btn-ghost btn-sm">
+        <a href={me.logoutUrl} className="btn-ghost btn-sm -ml-3.5 whitespace-nowrap">
           <LogOut aria-hidden className="size-4" /> Sign out
         </a>
       </div>

@@ -137,7 +137,7 @@ export function ClassStep({ draft, update, onDone }: { draft: Draft; update: Upd
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="go"
-          placeholder="e.g. K7M4P"
+          placeholder="• • • • •"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "class-code-error" : "class-code-hint"}
           className={clsx("field h-14 text-center font-semibold uppercase tracking-[0.35em] text-[22px] tabular", error && "border-bad")}

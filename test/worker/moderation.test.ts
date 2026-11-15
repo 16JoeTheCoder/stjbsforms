@@ -212,6 +212,15 @@ describe("results, coverage and council notes", () => {
     const after = (await json<{ teachers: { id: string; approved: number; needed: number }[] }>(call("/api/admin/teachers", { as: OWNER }))).teachers.find((x) => x.id === t.id)!;
     expect(after.approved).toBe(before.approved + 1);
     expect(after.needed).toBe(Math.max(0, 3 - after.approved));
+    // double-click / retry of the same council note doesn't create a second copy
+    const again = await call("/api/admin/notes/council", {
+      method: "POST",
+      json: { teacherId: t.id, approve: true, body: "From all of us in the student council: thank you for the patience, the jokes, and the extra sessions after school." },
+      as: OWNER,
+    });
+    expect(again.status).toBe(200);
+    const twice = (await json<{ teachers: { id: string; approved: number }[] }>(call("/api/admin/teachers", { as: OWNER }))).teachers.find((x) => x.id === t.id)!;
+    expect(twice.approved).toBe(after.approved);
     const short = await call("/api/admin/notes/council", { method: "POST", json: { teacherId: t.id, body: "Too short" }, as: OWNER });
     expect(short.status).toBe(400);
   });

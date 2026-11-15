@@ -51,8 +51,8 @@
     "ADMIN_HOST": "thanks-admin.stjbscouncil.com",
     "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
     "ACCESS_AUD": "REPLACE-WITH-ACCESS-APPLICATION-AUD",
-    "OWNER_EMAIL": "owner@example.com",
     "TURNSTILE_SITE_KEY": "REPLACE-WITH-TURNSTILE-SITE-KEY"
+    // OWNER_EMAIL is set as a secret (keeps a personal email out of the repo): see SETUP.md §E.
   },
 
   "env": {
@@ -79,7 +79,6 @@
         "ADMIN_HOST": "thanks-admin-staging.stjbscouncil.com",
         "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
         "ACCESS_AUD": "REPLACE-WITH-STAGING-ACCESS-AUD",
-        "OWNER_EMAIL": "owner@example.com",
         "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
       }
     }

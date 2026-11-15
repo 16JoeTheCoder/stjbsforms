@@ -67,7 +67,7 @@ export function OverviewPage() {
         <Stat label="Award ballots" value={d.submissions.active} sub="6 votes each" />
         <Stat label="Notes" value={d.notes.total} sub={`${d.notes.council} council-written`} />
         <Stat label="Pending review" value={d.notes.pending} sub={`${d.notes.unassigned} unassigned`} tone={d.notes.unassigned ? "warn" : undefined} />
-        <Stat label="Approved" value={d.notes.approved} tone="ok" />
+        <Stat label="Approved" value={d.notes.approved} tone={d.notes.approved ? "ok" : undefined} />
         <Stat label="In Trash" value={d.notes.trashed} />
       </section>
 

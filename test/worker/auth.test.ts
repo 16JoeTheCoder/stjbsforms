@@ -146,6 +146,7 @@ describe("reviewer isolation (IDOR)", () => {
       expect(n).not.toHaveProperty("classId");
       expect(n).not.toHaveProperty("submissionId");
       expect(n).toHaveProperty("gradeLabel");
+      expect(n.createdAt).toBe(""); // timestamps would let reviewers link a student's notes
     }
     // a note not assigned to this reviewer cannot be moderated by them
     const other = await env.DB.prepare("SELECT id, version FROM notes WHERE assigned_reviewer_id IS NOT ? LIMIT 1").bind(rev.id).first<{ id: string; version: number }>();

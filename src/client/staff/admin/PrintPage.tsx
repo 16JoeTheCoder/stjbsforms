@@ -25,6 +25,10 @@ export function PrintPage() {
   const [openNote, setOpenNote] = useState<string | null>(null);
 
   useEffect(() => () => (preview ? URL.revokeObjectURL(preview.url) : undefined), [preview]);
+  useEffect(() => {
+    void snapshot().catch((e) => setError(e instanceof Error ? e.message : "Couldn't load approved notes"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const snapshot = async () => {
     const s = await api<PrintSnapshot>(`/api/admin/print/snapshot${seed ? `?seed=${encodeURIComponent(seed)}` : ""}`);
@@ -131,7 +135,7 @@ export function PrintPage() {
           <h2 className="font-semibold">Teacher keepsakes</h2>
           <p className="mt-1 text-sm text-ink-2">One clean A4 document per teacher with all their approved notes. No author or class details.</p>
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <Select label="Teacher" value={teacherId} onFocus={() => !snap && void snapshot().catch(() => undefined)} onChange={(e) => setTeacherId(e.target.value)}>
+            <Select label="Teacher" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
               <option value="">Choose…</option>
               {teachersWithNotes.map((t) => (
                 <option key={t.id} value={t.id}>
