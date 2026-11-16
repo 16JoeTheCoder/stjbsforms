@@ -10,9 +10,9 @@ export interface Env {
 
   /** "production" | "staging" | "development". Dev-only shortcuts require "development". */
   ENVIRONMENT: string;
-  /** Hostname of the student portal, e.g. thanks.stjbscouncil.com */
+  /** Hostname of the student portal, e.g. thanks.stjbscouncil.org */
   PUBLIC_HOST: string;
-  /** Hostname of the staff portal, e.g. thanks-admin.stjbscouncil.com */
+  /** Hostname of the staff portal, e.g. thanks-admin.stjbscouncil.org */
   ADMIN_HOST: string;
   /** https://<team>.cloudflareaccess.com */
   ACCESS_TEAM_DOMAIN: string;

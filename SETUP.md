@@ -5,7 +5,7 @@ Step-by-step setup for the STJB Teacher's Day platform. Written for a technicall
 > **Golden rules**
 > - Never paste API tokens, secrets or D1 credentials into code, commits, chats or browser code. Secrets go in `wrangler secret put` or the Cloudflare dashboard only.
 > - Never run test data (`db:seed:local`) against staging or production.
-> - Don't touch the existing `stjbscouncil.com` website, its DNS records, or other Workers. This app only adds two **new** subdomains.
+> - Don't touch the existing `stjbscouncil.org` website, its DNS records, or other Workers. This app only adds two **new** subdomains.
 
 Placeholders look like `<LIKE_THIS>`. Replace them with your own values.
 
@@ -23,7 +23,7 @@ Placeholders look like `<LIKE_THIS>`. Replace them with your own values.
 
 Accounts and permissions:
 
-- A **Cloudflare account** that owns the `stjbscouncil.com` zone (it's registered through Cloudflare Registrar, so it already is).
+- A **Cloudflare account** that owns the `stjbscouncil.org` zone (it's registered through Cloudflare Registrar, so it already is).
 - Permission on that account to manage **Workers & Pages**, **D1**, **Turnstile**, and **Zero Trust (Access)**. The account owner has all of these.
 - Read access to the private GitHub repository.
 - Sign Wrangler in once: `npx wrangler login` (opens a browser). Check with `npx wrangler whoami`.
@@ -138,7 +138,7 @@ There's nothing to create by hand. The Worker `stjb-thanks` (name from `wrangler
 ### C3. Turnstile widget
 
 1. Cloudflare dashboard → **Turnstile** → **Add widget**.
-2. Name: `STJB Thanks`. Hostnames: `thanks.stjbscouncil.com` (add `thanks-staging.stjbscouncil.com` for staging, or create a second widget).
+2. Name: `STJB Thanks`. Hostnames: `thanks.stjbscouncil.org` (add `thanks-staging.stjbscouncil.org` for staging, or create a second widget).
 3. Widget mode: **Managed**.
 4. Copy the **Site key** (public) into `wrangler.jsonc` → `vars.TURNSTILE_SITE_KEY`.
 5. Store the **Secret key** as a Worker secret (after the Worker exists, or right away — Wrangler creates it if needed):
@@ -158,7 +158,7 @@ Access puts a login screen in front of the staff hostname. Staff type their emai
 3. **Access → Applications → Add an application → Self-hosted.**
    - Application name: `STJB Thanks staff`
    - Session duration: **1 week** (or the closest option offered). This is the "stay signed in" period.
-   - Public hostname: subdomain `thanks-admin`, domain `stjbscouncil.com`, path empty (protects the whole hostname, including the dashboard's static files).
+   - Public hostname: subdomain `thanks-admin`, domain `stjbscouncil.org`, path empty (protects the whole hostname, including the dashboard's static files).
    - Identity providers: **One-time PIN** only. Turn on "Instant auth" if offered, so users skip the provider picker.
 4. **Policy** — choose one design:
    - **Option A (recommended, simplest): "Verified email, app decides."** Policy name `Any verified email`, Action **Allow**, Include → **Everyone**. Anyone who can receive an email code can reach the login-protected shell, but **every API call is refused** unless that email is an active user in D1. Invitations in the app take effect immediately; nothing to sync.
@@ -178,8 +178,8 @@ Repeat 3–6 for staging with hostname `thanks-admin-staging` and put its AUD in
 
 Target:
 
-- `thanks.stjbscouncil.com` → student portal
-- `thanks-admin.stjbscouncil.com` → staff portal (behind Access)
+- `thanks.stjbscouncil.org` → student portal
+- `thanks-admin.stjbscouncil.org` → staff portal (behind Access)
 
 Both point at the same Worker. The Worker decides what each hostname may do: staff APIs answer **only** on `ADMIN_HOST` and **only** with a valid Access token; everywhere else they return 404.
 
@@ -187,12 +187,12 @@ Both point at the same Worker. The Worker decides what each hostname may do: sta
 
    ```jsonc
    "routes": [
-     { "pattern": "thanks.stjbscouncil.com", "custom_domain": true },
-     { "pattern": "thanks-admin.stjbscouncil.com", "custom_domain": true }
+     { "pattern": "thanks.stjbscouncil.org", "custom_domain": true },
+     { "pattern": "thanks-admin.stjbscouncil.org", "custom_domain": true }
    ],
    ```
 
-2. Commit and deploy (section H). Cloudflare creates the DNS records and TLS certificates for these two subdomains automatically. Existing records for `stjbscouncil.com`, `www` or anything else are untouched. Before deploying, check DNS for existing `thanks` or `thanks-admin` records; if one exists, Cloudflare won't attach the custom domain until you deliberately remove or rename it.
+2. Commit and deploy (section H). Cloudflare creates the DNS records and TLS certificates for these two subdomains automatically. Existing records for `stjbscouncil.org`, `www` or anything else are untouched. Before deploying, check DNS for existing `thanks` or `thanks-admin` records; if one exists, Cloudflare won't attach the custom domain until you deliberately remove or rename it.
 3. Create the Access application (C4) **before** announcing the staff URL.
 
 **No unprotected side doors:**
@@ -205,13 +205,13 @@ Both point at the same Worker. The Worker decides what each hostname may do: sta
 Verify after deploy:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://thanks.stjbscouncil.com/api/admin/overview
+curl -s -o /dev/null -w "%{http_code}\n" https://thanks.stjbscouncil.org/api/admin/overview
 ```
 
 Expected `404`.
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://thanks-admin.stjbscouncil.com/api/admin/overview
+curl -s -o /dev/null -w "%{http_code}\n" https://thanks-admin.stjbscouncil.org/api/admin/overview
 ```
 
 Expected `302` or `403` (redirect to the Access login — you aren't signed in from curl).
@@ -228,7 +228,7 @@ Set the owner's email as a secret (keeps a personal address out of the repo):
 npx wrangler secret put OWNER_EMAIL
 ```
 
-Then open `https://thanks-admin.stjbscouncil.com`, enter that email, enter the code from your inbox. On this first verified login the app creates you as the **owner** administrator. (Placeholder addresses like `@example.com` are never bootstrapped outside development.)
+Then open `https://thanks-admin.stjbscouncil.org`, enter that email, enter the code from your inbox. On this first verified login the app creates you as the **owner** administrator. (Placeholder addresses like `@example.com` are never bootstrapped outside development.)
 
 Manual alternative (if you prefer SQL):
 
@@ -307,8 +307,8 @@ Settings → **Open submissions** (optionally set opening/closing times, in Jaka
 | Name | Purpose | Public / secret | Where it's set | Example placeholder |
 |---|---|---|---|---|
 | `ENVIRONMENT` | `production`, `staging` or `development` (dev shortcuts need exactly `development`) | public | `wrangler.jsonc` vars; `.dev.vars` locally | `production` |
-| `PUBLIC_HOST` | Student hostname (Turnstile hostname check) | public | `wrangler.jsonc` vars | `thanks.stjbscouncil.com` |
-| `ADMIN_HOST` | Staff hostname (only host where staff APIs answer) | public | `wrangler.jsonc` vars | `thanks-admin.stjbscouncil.com` |
+| `PUBLIC_HOST` | Student hostname (Turnstile hostname check) | public | `wrangler.jsonc` vars | `thanks.stjbscouncil.org` |
+| `ADMIN_HOST` | Staff hostname (only host where staff APIs answer) | public | `wrangler.jsonc` vars | `thanks-admin.stjbscouncil.org` |
 | `ACCESS_TEAM_DOMAIN` | Access issuer / key URL | public | `wrangler.jsonc` vars | `https://<TEAM>.cloudflareaccess.com` |
 | `ACCESS_AUD` | Access application AUD tag | public | `wrangler.jsonc` vars | `<64-hex-chars>` |
 | `TURNSTILE_SITE_KEY` | Turnstile widget key sent to browsers | public | `wrangler.jsonc` vars | `0x4AAAAAAA...` |
@@ -358,8 +358,8 @@ For staging add `--env staging` to every `secret put`. Values in `wrangler.jsonc
 9. **Configure Access and Turnstile** (C3, C4) if not done.
 10. **Attach custom domains** (D). Push to `main` to trigger the build.
 11. **Production smoke test:**
-    - `https://thanks.stjbscouncil.com` loads the class-code screen.
-    - `curl https://thanks.stjbscouncil.com/api/public/form` returns 41 teachers and 6 awards, and no vote data.
+    - `https://thanks.stjbscouncil.org` loads the class-code screen.
+    - `curl https://thanks.stjbscouncil.org/api/public/form` returns 41 teachers and 6 awards, and no vote data.
     - Staff URL asks for your email; after the code you see the Overview. The System panel shows environment `production` and Turnstile `configured`, with no warnings.
     - Create a throwaway class, open submissions, submit one response from your phone, check it appears, then **void** it (Submissions) and disable the throwaway class.
 12. **Enable the student form only after the smoke test passes:** Settings → Open submissions.

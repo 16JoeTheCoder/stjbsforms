@@ -2,8 +2,8 @@
 
 Anonymous award voting and appreciation letters for St. Johannes Berchmans School, with a reviewer workflow, a full admin dashboard, and print-ready A4 PDFs for the appreciation wall.
 
-- **Students** (`thanks.stjbscouncil.com`): enter a 5-character class code → pick a teacher for each of 6 awards → write 3 letters (100–400 characters) → review and submit. Progress is saved on the device; retries never create duplicates.
-- **Reviewers** (`thanks-admin.stjbscouncil.com`, email one-time code via Cloudflare Access): a fast queue of their assigned notes with Approve / Trash / Restore and keyboard shortcuts.
+- **Students** (`thanks.stjbscouncil.org`): enter a 5-character class code → pick a teacher for each of 6 awards → write 3 letters (100–400 characters) → review and submit. Progress is saved on the device; retries never create duplicates.
+- **Reviewers** (`thanks-admin.stjbscouncil.org`, email one-time code via Cloudflare Access): a fast queue of their assigned notes with Approve / Trash / Restore and keyboard shortcuts.
 - **Admins**: overview, Pinterest-style note board, trash, whole-submission void/restore, class codes and soft quotas, teachers and coverage, awards and rankings, review workload distribution, people, settings, audit log, CSV exports, A4 mosaic and per-teacher keepsake PDFs.
 
 **Stack:** one Cloudflare Worker (Hono) + Workers Static Assets (React 19, Vite, Tailwind 4) + D1 + Turnstile + Cloudflare Access. No other services.
