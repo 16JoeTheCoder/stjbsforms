@@ -19,18 +19,18 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // Custom domains. Uncomment once the zone stjbscouncil.com is ready (see SETUP.md §D).
-  // "routes": [
-  //   { "pattern": "thanks.stjbscouncil.com", "custom_domain": true },
-  //   { "pattern": "thanks-admin.stjbscouncil.com", "custom_domain": true }
-  // ],
+  // Custom domains. Uncomment once the zone stjbscouncil.org is ready (see SETUP.md §D).
+  "routes": [
+    { "pattern": "thanks.stjbscouncil.org", "custom_domain": true },
+    { "pattern": "thanks-admin.stjbscouncil.org", "custom_domain": true }
+  ],
 
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "stjb-thanks-prod",
       // Replace with the id printed by `npx wrangler d1 create stjb-thanks-prod`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "9a5b3782-bc19-4651-9c1b-4d4f83e900c0",
       "migrations_dir": "migrations"
     }
   ],
@@ -47,11 +47,11 @@
   // Non-secret configuration (production). Secrets: see SETUP.md §G.
   "vars": {
     "ENVIRONMENT": "production",
-    "PUBLIC_HOST": "thanks.stjbscouncil.com",
-    "ADMIN_HOST": "thanks-admin.stjbscouncil.com",
-    "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
-    "ACCESS_AUD": "REPLACE-WITH-ACCESS-APPLICATION-AUD",
-    "TURNSTILE_SITE_KEY": "REPLACE-WITH-TURNSTILE-SITE-KEY"
+    "PUBLIC_HOST": "thanks.stjbscouncil.org",
+    "ADMIN_HOST": "thanks-admin.stjbscouncil.org",
+    "ACCESS_TEAM_DOMAIN": "https://stjbs-council.cloudflareaccess.com",
+    "ACCESS_AUD": "0e9324a17b701b2b204b7b9c7b7199c53d23c7e4d12eecb4d58b2bcdc0dc6cf5",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAGCjWiR3RP6Wt_5y"
     // OWNER_EMAIL is set as a secret (keeps a personal email out of the repo): see SETUP.md §E.
   },
 
@@ -64,7 +64,7 @@
         {
           "binding": "DB",
           "database_name": "stjb-thanks-staging",
-          "database_id": "00000000-0000-0000-0000-000000000001",
+          "database_id": "a298116f-7f49-45eb-8b06-48a3783f4b29",
           "migrations_dir": "migrations"
         }
       ],
@@ -75,9 +75,9 @@
       ],
       "vars": {
         "ENVIRONMENT": "staging",
-        "PUBLIC_HOST": "thanks-staging.stjbscouncil.com",
-        "ADMIN_HOST": "thanks-admin-staging.stjbscouncil.com",
-        "ACCESS_TEAM_DOMAIN": "https://REPLACE-ME.cloudflareaccess.com",
+        "PUBLIC_HOST": "thanks-staging.stjbscouncil.org",
+        "ADMIN_HOST": "thanks-admin-staging.stjbscouncil.org",
+        "ACCESS_TEAM_DOMAIN": "https://stjbs-council.cloudflareaccess.com",
         "ACCESS_AUD": "REPLACE-WITH-STAGING-ACCESS-AUD",
         "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
       }

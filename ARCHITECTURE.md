@@ -3,9 +3,9 @@
 One Cloudflare Worker serves everything: the React SPA (Workers Static Assets) and a JSON API (Hono) backed by D1.
 
 ```
-Browser ──► thanks.stjbscouncil.com ───────┐
+Browser ──► thanks.stjbscouncil.org ───────┐
                                            ├─► Worker "stjb-thanks" ──► D1 (SQLite)
-Browser ──► Access (email OTP) ──► thanks-admin.stjbscouncil.com ┘      ├─► Turnstile Siteverify
+Browser ──► Access (email OTP) ──► thanks-admin.stjbscouncil.org ┘      ├─► Turnstile Siteverify
                                                                          └─► Rate Limiting bindings
 ```
 
