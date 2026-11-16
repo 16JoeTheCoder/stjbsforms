@@ -1,6 +1,8 @@
 export interface Env {
   DB: D1Database;
   ASSETS?: Fetcher;
+  /** Private R2 bucket that receives the scheduled D1 backups */
+  BACKUPS?: R2Bucket;
   /** Per-browser limiter (keyed by the HttpOnly browser id) */
   BROWSER_LIMITER?: RateLimit;
   /** Generous per-network backstop: a whole school shares one IP, so keep this high */

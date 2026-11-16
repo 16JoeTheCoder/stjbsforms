@@ -5,6 +5,8 @@ import { publicRoutes } from "./routes/public";
 import { reviewRoutes } from "./routes/review";
 import { adminNotes } from "./routes/admin-notes";
 import { adminManage } from "./routes/admin-manage";
+import { runBackup } from "./backup";
+import type { Env } from "./env";
 import type { Me } from "../shared/types";
 
 const app = new Hono<AppEnv>();
@@ -47,4 +49,11 @@ app.onError((err) => errorResponse(err));
 // Anything not under /api is served by Workers Static Assets (SPA fallback).
 app.all("*", (c) => (c.env.ASSETS ? c.env.ASSETS.fetch(c.req.raw) : c.notFound()));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Cron triggers (see wrangler.jsonc): D1 backup to R2, Jakarta-time schedule.
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runBackup(env, new Date(controller.scheduledTime)));
+  },
+};
+export { app };

@@ -384,6 +384,8 @@ GitHub Actions (`.github/workflows/ci.yml`) only runs checks; it never deploys, 
 | Roll back | Worker → **Deployments** → pick the previous version → **Rollback**, or `npx wrangler rollback`. Rollbacks don't undo database migrations, which is why migrations are additive only. |
 | Migration failure | Wrangler rolls back the failed migration and keeps the previous ones. Read the error, fix the SQL in a **new** migration file (never edit an applied one), run `migrations apply` again. |
 
+**Automatic backups (cloud).** The Worker has cron triggers that dump every D1 table to the private R2 bucket `stjb-thanks-backups` (binding `BACKUPS`, code in `src/worker/backup.ts`). Times in WIB: 14:00, 14:30, 14:40, 14:50, 15:00, 15:30, 16:00, 18:00 (cron is UTC: `0 7,8,9,11`, `30 7,8`, `40 7`, `50 7`). Files are `backups/YYYY-MM-DD/stjb-thanks-<date>_<HHMM>-WIB.json`. Create the bucket once with `npx wrangler r2 bucket create stjb-thanks-backups`; the schedule starts after the next `npx wrangler deploy`. List files in the Cloudflare dashboard under R2, or `npx wrangler r2 object get stjb-thanks-backups/<key> --remote --file=out.json`. Set a retention rule under the bucket's Settings, Object lifecycle rules.
+
 **Backup schedule** (Time Travel alone isn't an archive):
 
 - Daily while submissions are open, and after each review session:
