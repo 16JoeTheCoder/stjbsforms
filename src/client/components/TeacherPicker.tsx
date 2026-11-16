@@ -19,6 +19,11 @@ interface Props {
   hideLabel?: boolean;
 }
 
+/** Mouse/trackpad device (desktop), as opposed to touch. */
+function isFinePointer() {
+  return typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches;
+}
+
 /**
  * Accessible teacher combobox built on Downshift (WAI-ARIA 1.2 combobox).
  * Only roster entries can be selected; free text never becomes a value.
@@ -56,6 +61,7 @@ export function TeacherPicker({
     highlightedIndex,
     openMenu,
     selectItem,
+    setHighlightedIndex,
   } = useCombobox<PublicTeacher>({
     id,
     items,
@@ -76,6 +82,10 @@ export function TeacherPicker({
       // Belt and braces: a teacher already used elsewhere can never become the value.
       if (changes.selectedItem && changes.selectedItem !== state.selectedItem && unavailable?.has(changes.selectedItem.id)) {
         return { ...changes, selectedItem: state.selectedItem, inputValue: state.inputValue, isOpen: true };
+      }
+      // Desktop: clicking into the field doesn't pop the list open; typing does.
+      if (type === useCombobox.stateChangeTypes.InputClick && !state.isOpen && isFinePointer()) {
+        return { ...changes, isOpen: false };
       }
       // Leaving the field never selects anything implicitly; text that isn't a
       // roster selection snaps back to the current value.
@@ -129,8 +139,20 @@ export function TeacherPicker({
                 setQuery(sel ? teacherDisplayName(sel) : "");
               }, 0);
             },
+            // Tab / Shift+Tab cycle through matches while the list is open; Enter picks.
+            onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key !== "Tab" || !isOpen) return;
+              const selectable = items.map((t, i) => (unavailable?.has(t.id) ? -1 : i)).filter((i) => i >= 0);
+              if (!selectable.length) return;
+              e.preventDefault();
+              (e.nativeEvent as unknown as { preventDownshiftDefault?: boolean }).preventDownshiftDefault = true;
+              const pos = selectable.indexOf(highlightedIndex);
+              const step = e.shiftKey ? -1 : 1;
+              const next = pos < 0 ? (e.shiftKey ? selectable.length - 1 : 0) : (pos + step + selectable.length) % selectable.length;
+              setHighlightedIndex(selectable[next]!);
+            },
             onFocus: () => {
-              if (!isOpen) openMenu();
+              if (!isOpen && !isFinePointer()) openMenu();
               if (window.innerWidth < 640) {
                 // keep the field and its list above the on-screen keyboard
                 setTimeout(() => inputRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 250);

@@ -70,6 +70,44 @@ test("complete submission, receipt survives reload, browser can't resubmit", asy
   await expect(page.getByRole("heading", { name: "Already sent from this browser." })).toBeVisible();
 });
 
+test("desktop picker: click doesn't open list, typing does, Tab cycles, Enter picks", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop-only behaviour");
+  await enterClass(page);
+  await expect(page.getByText("Your response is anonymous")).toBeVisible();
+  const box = page.getByRole("combobox").nth(0);
+  await box.click();
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await box.fill("a");
+  const opts = page.getByRole("option");
+  await expect(opts.first()).toBeVisible();
+  await page.keyboard.press("Tab"); // highlight first
+  await page.keyboard.press("Tab"); // second
+  const name = (await opts.nth(1).innerText()).split("\n")[0]!.trim();
+  await expect(box).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(box).toHaveValue(name);
+});
+
+test("optional extra letters: add, blank ones dropped, max 10", async ({ page }) => {
+  await enterClass(page);
+  await fillAwards(page);
+  await fillLetters(page);
+  const add = page.getByRole("button", { name: /Write another letter/ });
+  await add.click();
+  await add.click();
+  await expect(page.getByText("Letter 5 (optional)")).toBeVisible();
+  await pick(page, 3, "hendra");
+  await page.locator("#letter-3-body").fill(LETTER(3));
+  // letter 5 left blank → dropped quietly
+  await page.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByRole("heading", { name: "Check and send" })).toBeVisible();
+  await expect(page.locator("figure")).toHaveCount(4);
+  await page.getByRole("button", { name: "Edit" }).last().click();
+  for (let i = 0; i < 5; i++) await add.click();
+  await expect(add).toHaveCount(0);
+  await expect(page.getByText(/maximum of 10 letters/)).toBeVisible();
+});
+
 test("teacher picker: keyboard, typos, honorifics, duplicates, no free text", async ({ page }) => {
   await enterClass(page);
   const first = page.getByRole("combobox").nth(0);

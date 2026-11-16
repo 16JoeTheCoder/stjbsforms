@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, Lock, PencilLine } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, PencilLine, Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { api, ApiFailure, fmtTime } from "../lib/api";
-import type { Draft, Stage } from "./draft";
+import { activeLetters, type Draft, type Stage } from "./draft";
+import { MAX_LETTERS, MIN_LETTERS } from "../../shared/schemas";
 import { TeacherPicker } from "../components/TeacherPicker";
 import { Turnstile } from "../components/Turnstile";
 import { Banner, ConfirmDialog, Spinner } from "../components/ui";
@@ -112,7 +113,7 @@ export function ClassStep({ draft, update, onDone }: { draft: Draft; update: Upd
           teachers.
         </h1>
         <p className="mt-5 max-w-[46ch] text-[17px] text-ink-2">
-          Vote in six light-hearted awards and write three short letters. It takes about 15 minutes, and your name isn't collected.
+          Vote in six light-hearted awards and write three short letters (more if you like). It takes about 15 minutes, and your name isn't collected.
         </p>
       </div>
       {hasProgress ? (
@@ -189,6 +190,9 @@ export function AwardsStep({ draft, form, update, go }: { draft: Draft; form: Pu
         title="The awards"
         lead="Pick a different teacher for each award. It's all in good fun — results stay with the student council."
       />
+      <Banner tone="info" className="mb-5" title="Your response is anonymous">
+        Your name isn't saved — only what you write and who you pick for each award.
+      </Banner>
       <p className="mb-4 text-sm font-medium text-ink-2 tabular" aria-live="polite">
         {chosen} of {form.awards.length} chosen
       </p>
@@ -271,17 +275,18 @@ function Counter({ text, id }: { text: string; id: string }) {
 
 export function letterIssues(draft: Draft): string[] {
   const out: string[] = [];
-  const ids = draft.letters.map((l) => l.teacherId);
-  draft.letters.forEach((l, i) => {
+  const active = activeLetters(draft);
+  const ids = active.map(({ letter }) => letter.teacherId);
+  active.forEach(({ letter: l, index: i }) => {
     if (!l.teacherId) out.push(`Letter ${i + 1}: choose a teacher.`);
     const p = noteProblem(l.body);
     if (p === "empty") out.push(`Letter ${i + 1}: write your message.`);
     if (p === "too_short") out.push(`Letter ${i + 1}: needs at least ${NOTE_MIN_CHARS} characters.`);
     if (p === "too_long") out.push(`Letter ${i + 1}: is over ${NOTE_MAX_CHARS} characters.`);
   });
-  if (ids.every(Boolean) && new Set(ids).size !== 3) out.push("Each letter needs a different teacher.");
-  const norms = draft.letters.map((l) => normalizeForCompare(l.body)).filter(Boolean);
-  if (norms.length === 3 && new Set(norms).size !== 3) out.push("Two of your letters are identical. Make each one personal.");
+  if (ids.every(Boolean) && new Set(ids).size !== ids.length) out.push("Each letter needs a different teacher.");
+  const norms = active.map(({ letter }) => normalizeForCompare(letter.body)).filter(Boolean);
+  if (new Set(norms).size !== norms.length) out.push("Two of your letters are identical. Make each one personal.");
   return out;
 }
 
@@ -292,15 +297,19 @@ export function LettersStep({ draft, form, update, go }: { draft: Draft; form: P
 
   const setLetter = (i: number, patch: Partial<Draft["letters"][number]>, immediate = false) =>
     update((d) => {
-      const letters = d.letters.map((l, j) => (j === i ? { ...l, ...patch } : l)) as Draft["letters"];
+      const letters = d.letters.map((l, j) => (j === i ? { ...l, ...patch } : l));
       return { ...d, letters };
     }, { immediate });
+  const addLetter = () =>
+    update((d) => (d.letters.length >= MAX_LETTERS ? d : { ...d, letters: [...d.letters, { teacherId: null, body: "" }] }), { immediate: true });
+  const removeLetter = (i: number) =>
+    update((d) => ({ ...d, letters: d.letters.filter((_, j) => j !== i) }), { immediate: true });
 
   return (
     <section>
       <StepHeading
         title="Three letters"
-        lead="Write to three different teachers. Each letter will be printed and put up on the appreciation wall."
+        lead={`Write to three different teachers. Want to thank more? Add up to ${MAX_LETTERS - MIN_LETTERS} extra letters below. Each letter will be printed and put up on the appreciation wall.`}
       />
       <p className="mb-6 flex gap-2 text-sm text-ink-2">
         <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -313,26 +322,35 @@ export function LettersStep({ draft, form, update, go }: { draft: Draft; form: P
           const teacher = form.teachers.find((t) => t.id === l.teacherId);
           const problem = noteProblem(l.body);
           const dup = norms[i] && norms.some((n, j) => j !== i && n === norms[i]);
-          const showErr = tried && (problem || !l.teacherId || dup);
+          const optional = i >= MIN_LETTERS;
+          const blank = optional && !l.teacherId && !l.body.trim();
+          const showErr = tried && !blank && (problem || !l.teacherId || dup);
           return (
             <article key={i} className={clsx("card p-4 sm:p-6", showErr && "border-bad")} aria-labelledby={`letter-${i}-title`}>
-              <h2 id={`letter-${i}-title`} className="mb-3 text-sm font-semibold text-muted">
-                Letter {i + 1} of 3
-              </h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 id={`letter-${i}-title`} className="text-sm font-semibold text-muted">
+                  {optional ? `Letter ${i + 1} (optional)` : `Letter ${i + 1} of ${MIN_LETTERS}`}
+                </h2>
+                {optional ? (
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => removeLetter(i)} aria-label={`Remove letter ${i + 1}`}>
+                    <Trash2 aria-hidden className="size-4" /> Remove
+                  </button>
+                ) : null}
+              </div>
               <TeacherPicker
                 id={`letter-${i}-to`}
                 label="To"
                 teachers={form.teachers}
                 value={l.teacherId}
                 unavailable={others}
-                invalid={tried && !l.teacherId}
+                invalid={tried && !blank && !l.teacherId}
                 onChange={(tid) => setLetter(i, { teacherId: tid }, true)}
               />
               <div className="mt-5">
                 <label htmlFor={`letter-${i}-body`} className="label">
                   Your message
                 </label>
-                <p className="hint mt-0.5 mb-2">{PROMPTS[i]}</p>
+                <p className="hint mt-0.5 mb-2">{PROMPTS[i % PROMPTS.length]}</p>
                 <div className="rounded-xl border border-line-strong bg-card transition-[border-color,box-shadow] duration-150 focus-within:border-ink focus-within:ring-2 focus-within:ring-ink/15">
                   <p aria-hidden className="px-4 pt-3.5 font-serif text-[17px] italic text-ink-2">
                     Dear {teacher ? teacherDisplayName(teacher) : "…"},
@@ -355,6 +373,13 @@ export function LettersStep({ draft, form, update, go }: { draft: Draft; form: P
           );
         })}
       </div>
+      {draft.letters.length < MAX_LETTERS ? (
+        <button type="button" className="btn-ghost mt-5" onClick={addLetter}>
+          <Plus aria-hidden className="size-4" /> Write another letter (optional)
+        </button>
+      ) : (
+        <p className="mt-5 text-sm text-muted">You've reached the maximum of {MAX_LETTERS} letters.</p>
+      )}
       {tried && issues.length ? (
         <Banner tone="bad" title="A few things to finish" className="mt-6">
           <ul className="list-disc pl-5">
@@ -468,7 +493,7 @@ export function ReviewStep(props: {
             </button>
           </div>
           <div className="space-y-4">
-            {draft.letters.map((l, i) => (
+            {activeLetters(draft).map(({ letter: l, index: i }) => (
               <figure key={i} className="rounded-xl bg-paper px-4 py-3.5">
                 <p className="font-serif text-[16px] italic text-ink-2">Dear {tName(l.teacherId)},</p>
                 <blockquote className="mt-1 whitespace-pre-wrap break-words font-serif text-[16px] leading-[1.6]">{l.body.trim()}</blockquote>
@@ -564,7 +589,7 @@ export function DoneStep({ draft, form, onClear }: { draft: Draft; form: PublicF
         <details className="group mt-6">
           <summary className="btn-ghost -ml-3 cursor-pointer list-none">{earlier ? "View your unsent letters" : "View what you sent"}</summary>
           <div className="mt-3 space-y-3">
-            {draft.letters.map((l, i) => (
+            {activeLetters(draft).map(({ letter: l, index: i }) => (
               <figure key={i} className="card px-4 py-3.5">
                 <p className="font-serif italic text-ink-2">Dear {tName(l.teacherId)},</p>
                 <blockquote className="mt-1 whitespace-pre-wrap break-words font-serif leading-[1.6]">{l.body.trim()}</blockquote>

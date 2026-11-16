@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, CloudOff } from "lucide-react";
 import clsx from "clsx";
 import { api, ApiFailure, fmtTime } from "../lib/api";
-import { useDraft, type Draft, type Stage } from "./draft";
+import { activeLetters, useDraft, type Draft, type Stage } from "./draft";
 import { ClassStep, AwardsStep, LettersStep, ReviewStep, DoneStep } from "./steps";
 import { Banner, Spinner } from "../components/ui";
 import type { PublicConfig, PublicFormData, SubmissionReceipt } from "../../shared/types";
@@ -34,7 +34,7 @@ function prune(d: Draft, form: PublicFormData): { draft: Draft; changed: boolean
       return { ...l, teacherId: null };
     }
     return l;
-  }) as Draft["letters"];
+  });
   return { draft: changed ? { ...d, awards, letters } : d, changed };
 }
 
@@ -158,7 +158,7 @@ export function StudentApp() {
         classId: d.classAccess?.classId,
         turnstileToken: turnstileToken ?? "",
         votes: form.awards.map((a) => ({ awardId: a.id, teacherId: d.awards[a.id]! })),
-        notes: d.letters.map((l) => ({ teacherId: l.teacherId!, body: l.body })),
+        notes: activeLetters(d).map(({ letter: l }) => ({ teacherId: l.teacherId!, body: l.body })),
       };
       try {
         const r = await api<SubmissionReceipt>("/api/public/submissions", { method: "POST", json: payload, timeoutMs: 30_000 });

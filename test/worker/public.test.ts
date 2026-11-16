@@ -49,6 +49,21 @@ describe("submission validation", () => {
     expect(n!.n).toBe(3);
   });
 
+  it("accepts up to 10 letters and rejects 2 or 11", async () => {
+    const make = (n: number) =>
+      submission(s, {
+        notes: Array.from({ length: n }, (_, i) => ({ teacherId: s.teachers[i % s.teachers.length]!.id, body: letter(i, Math.random().toString(36)) })),
+      });
+    expect(s.teachers.length).toBeGreaterThanOrEqual(10);
+    const ten = make(10);
+    expect((await submit(ten)).status).toBe(201);
+    const sub = await env.DB.prepare("SELECT id FROM submissions WHERE idempotency_key = ?").bind(ten.idempotencyKey).first<{ id: string }>();
+    const n = await env.DB.prepare("SELECT COUNT(*) n, MAX(slot) m FROM notes WHERE submission_id = ?").bind(sub!.id).first<{ n: number; m: number }>();
+    expect(n).toMatchObject({ n: 10, m: 10 });
+    expect((await submit(make(2))).status).toBe(400);
+    expect((await submit(make(11))).status).toBe(400);
+  });
+
   it("rejects the same teacher for two awards", async () => {
     const body = submission(s);
     body.votes[1]!.teacherId = body.votes[0]!.teacherId;
