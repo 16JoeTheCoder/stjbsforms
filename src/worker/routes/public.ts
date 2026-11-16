@@ -278,8 +278,8 @@ publicRoutes.post("/submissions", async (c) => {
 
   // 6. Notes
   const noteTeachers = input.notes.map((n) => n.teacherId);
-  if (new Set(noteTeachers).size !== 3) {
-    throw new ApiError(400, "VALIDATION", "Write your three letters to three different teachers.", { field: "notes" });
+  if (new Set(noteTeachers).size !== noteTeachers.length) {
+    throw new ApiError(400, "VALIDATION", "Each letter must go to a different teacher.", { field: "notes" });
   }
   const cleaned = input.notes.map((n, i) => {
     const body = cleanNoteText(n.body);
@@ -295,14 +295,14 @@ publicRoutes.post("/submissions", async (c) => {
     }
     return { teacherId: n.teacherId, body, chars: countChars(body), norm: normalizeForCompare(body) };
   });
-  if (new Set(cleaned.map((n) => n.norm)).size !== 3) {
+  if (new Set(cleaned.map((n) => n.norm)).size !== cleaned.length) {
     throw new ApiError(400, "VALIDATION", "Each letter must be different. Two of your letters are identical.", {
       field: "notes",
       problem: "identical",
     });
   }
   const hashes = await Promise.all(cleaned.map((n) => sha256Hex(n.norm)));
-  const seen = await env.DB.prepare(`SELECT DISTINCT body_hash FROM notes WHERE body_hash IN (?, ?, ?)`)
+  const seen = await env.DB.prepare(`SELECT DISTINCT body_hash FROM notes WHERE body_hash IN (${hashes.map(() => "?").join(", ")})`)
     .bind(...hashes)
     .all<{ body_hash: string }>();
   const seenSet = new Set(seen.results.map((r) => r.body_hash));

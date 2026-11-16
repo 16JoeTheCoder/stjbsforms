@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { randomKey } from "../lib/api";
 import type { ClassAccessResult, SubmissionReceipt } from "../../shared/types";
+import { MAX_LETTERS, MIN_LETTERS } from "../../shared/schemas";
 
 export type Stage = "class" | "awards" | "letters" | "review" | "done";
 
@@ -15,7 +16,8 @@ export interface Draft {
   classCode: string;
   classAccess: ClassAccessResult | null;
   awards: Record<string, string>; // awardId -> teacherId
-  letters: [Letter, Letter, Letter];
+  /** First MIN_LETTERS are required; any after are optional extras. */
+  letters: Letter[];
   idempotencyKey: string;
   /** Set right before sending; cleared only once the outcome is known. */
   pendingSubmit: boolean;
@@ -46,12 +48,19 @@ export function emptyDraft(): Draft {
   };
 }
 
+/** Optional extras with no teacher and no text are dropped quietly. Keeps original indexes. */
+export function activeLetters(d: Pick<Draft, "letters">): { letter: Letter; index: number }[] {
+  return d.letters
+    .map((letter, index) => ({ letter, index }))
+    .filter(({ letter, index }) => index < MIN_LETTERS || letter.teacherId || letter.body.trim());
+}
+
 export function loadDraft(): Draft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return emptyDraft();
     const d = JSON.parse(raw) as Partial<Draft>;
-    if (d.v !== 1 || !Array.isArray(d.letters) || d.letters.length !== 3 || typeof d.idempotencyKey !== "string") {
+    if (d.v !== 1 || !Array.isArray(d.letters) || d.letters.length < MIN_LETTERS || d.letters.length > MAX_LETTERS || typeof d.idempotencyKey !== "string") {
       keepUnreadable(raw);
       return emptyDraft();
     }

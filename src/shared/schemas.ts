@@ -2,6 +2,10 @@ import { z } from "zod";
 import { CODE_LENGTH } from "./codes";
 import { NOTE_RAW_MAX } from "./text";
 
+/** Required letters, and the most a student may write in total. */
+export const MIN_LETTERS = 3;
+export const MAX_LETTERS = 10;
+
 export const id = z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/);
 export const idempotencyKey = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 
@@ -20,7 +24,8 @@ export const submissionInput = z.object({
     .max(30),
   notes: z
     .array(z.object({ teacherId: id, body: z.string().max(NOTE_RAW_MAX) }))
-    .length(3),
+    .min(MIN_LETTERS)
+    .max(MAX_LETTERS),
 });
 export type SubmissionInput = z.infer<typeof submissionInput>;
 
