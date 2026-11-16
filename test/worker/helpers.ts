@@ -1,6 +1,6 @@
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import app from "../../src/worker/index";
+import { app } from "../../src/worker/index";
 import type { Env } from "../../src/worker/env";
 
 export const LOCAL = "http://localhost";
