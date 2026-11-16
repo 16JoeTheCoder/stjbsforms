@@ -70,7 +70,7 @@ test("complete submission, receipt survives reload, browser can't resubmit", asy
   await expect(page.getByRole("heading", { name: "Already sent from this browser." })).toBeVisible();
 });
 
-test("desktop picker: click doesn't open list, typing does, Tab cycles, Enter picks", async ({ page, isMobile }) => {
+test("desktop picker: click doesn't open list, typing does, arrows + Enter pick", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop-only behaviour");
   await enterClass(page);
   await expect(page.getByText("Your response is anonymous")).toBeVisible();
@@ -80,8 +80,7 @@ test("desktop picker: click doesn't open list, typing does, Tab cycles, Enter pi
   await box.fill("a");
   const opts = page.getByRole("option");
   await expect(opts.first()).toBeVisible();
-  await page.keyboard.press("Tab"); // highlight first
-  await page.keyboard.press("Tab"); // second
+  await page.keyboard.press("ArrowDown");
   const name = (await opts.nth(1).innerText()).split("\n")[0]!.trim();
   await expect(box).toBeFocused();
   await page.keyboard.press("Enter");

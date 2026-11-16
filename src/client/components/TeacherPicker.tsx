@@ -61,7 +61,6 @@ export function TeacherPicker({
     highlightedIndex,
     openMenu,
     selectItem,
-    setHighlightedIndex,
   } = useCombobox<PublicTeacher>({
     id,
     items,
@@ -138,18 +137,6 @@ export function TeacherPicker({
                 const sel = ts.find((t) => t.id === v);
                 setQuery(sel ? teacherDisplayName(sel) : "");
               }, 0);
-            },
-            // Tab / Shift+Tab cycle through matches while the list is open; Enter picks.
-            onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key !== "Tab" || !isOpen) return;
-              const selectable = items.map((t, i) => (unavailable?.has(t.id) ? -1 : i)).filter((i) => i >= 0);
-              if (!selectable.length) return;
-              e.preventDefault();
-              (e.nativeEvent as unknown as { preventDownshiftDefault?: boolean }).preventDownshiftDefault = true;
-              const pos = selectable.indexOf(highlightedIndex);
-              const step = e.shiftKey ? -1 : 1;
-              const next = pos < 0 ? (e.shiftKey ? selectable.length - 1 : 0) : (pos + step + selectable.length) % selectable.length;
-              setHighlightedIndex(selectable[next]!);
             },
             onFocus: () => {
               if (!isOpen && !isFinePointer()) openMenu();
