@@ -60,3 +60,44 @@ test.describe("reviewer", () => {
     expect(res.status()).toBe(403);
   });
 });
+
+test.describe("AI review", () => {
+  test.use(as("owner@example.com"));
+  test("export prompt, paste AI reply, preview, apply", async ({ page, request }, info) => {
+    test.skip(info.project.name === "mobile", "admin flow exercised at desktop width");
+    const form = await (await request.get("/api/public/form")).json();
+    const t = form.teachers.map((x: { id: string }) => x.id);
+    const res = await request.post("/api/public/submissions", {
+      headers: { origin: new URL(info.project.use.baseURL!).origin, cookie: `stjb_bid=e2eaibrowser${Date.now()}x` },
+      data: {
+        idempotencyKey: `e2e_ai_${Date.now()}_abcdef`,
+        classCode: "D4JC7",
+        votes: form.awards.map((a: { id: string }, i: number) => ({ awardId: a.id, teacherId: t[(i + 5) % t.length] })),
+        notes: [0, 1, 2].map((i) => ({ teacherId: t[25 + i], body: `AI review e2e note ${i}: thank you for your patience and the extra help after class every single week this year.` })),
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+
+    await page.goto("/admin/ai-review");
+    await expect(page.getByRole("heading", { name: "AI review" })).toBeVisible();
+    await page.getByRole("button", { name: "Create export" }).click();
+    await expect(page.getByText(/pending notes in/)).toBeVisible();
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Download prompt/ }).click();
+    const file = await (await download).path();
+    const md = (await import("node:fs")).readFileSync(file!, "utf8");
+    expect(md).toContain('"format": "stjb-ai-review-v1"');
+
+    // Act as the AI: approve everything in the exported data block.
+    const data = JSON.parse(md.split("## Data")[1]!.split("```json")[1]!.split("```")[0]!);
+    const reply = { format: "stjb-ai-review-v1", exportId: data.exportId, decisions: data.notes.map((n: { id: string }) => ({ id: n.id, decision: "approve", reason: "" })) };
+    await page.getByLabel("AI reply").fill("```json\n" + JSON.stringify(reply) + "\n```");
+    await page.getByRole("button", { name: /Check/ }).click();
+    await expect(page.getByRole("heading", { name: /Preview/ })).toBeVisible();
+    await page.getByRole("button", { name: /^Apply \d+ decisions/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Apply" }).click();
+    await expect(page.getByRole("heading", { name: "Import applied" })).toBeVisible();
+    const ov = await (await request.get("/api/admin/overview")).json();
+    expect(ov.notes.pending).toBe(0);
+  });
+});

@@ -8,6 +8,6 @@ rm -rf "$STATE"
 npx wrangler d1 migrations apply DB --local --persist-to "$STATE" >/dev/null
 node scripts/seed-dev.mjs >/dev/null
 npx wrangler d1 execute DB --local --persist-to "$STATE" --file=.wrangler/seed-dev.sql >/dev/null
-exec npx wrangler dev --port "$PORT" --local --persist-to "$STATE" --env-file /dev/null \
+exec npx wrangler dev --port "$PORT" --local --local-upstream "localhost:$PORT" --persist-to "$STATE" --env-file /dev/null \
   --var ENVIRONMENT:development --var DEV_USER_EMAIL:owner@example.com --var OWNER_EMAIL:owner@example.com \
   --var APP_SECRET:dev-only-insecure-secret-change-me-0123456789 --var TURNSTILE_SITE_KEY:

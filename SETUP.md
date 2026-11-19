@@ -354,7 +354,9 @@ For staging add `--env staging` to every `secret put`. Values in `wrangler.jsonc
    npx wrangler d1 migrations apply stjb-thanks-prod --remote
    ```
 
-   Migrations only ever add; Wrangler captures a backup before applying. Don't put migrations in the automatic deploy command.
+   Migrations only ever add; Wrangler captures a backup before applying.
+
+   *Optional:* set the Workers Builds deploy command to `npm run deploy` (applies pending migrations, then deploys). The build token then also needs **D1 Edit** permission; if the build fails on the migration step with an authentication error, add that permission or switch back to `npx wrangler deploy` and apply migrations manually.
 9. **Configure Access and Turnstile** (C3, C4) if not done.
 10. **Attach custom domains** (D). Push to `main` to trigger the build.
 11. **Production smoke test:**
@@ -376,6 +378,7 @@ GitHub Actions (`.github/workflows/ci.yml`) only runs checks; it never deploys, 
 | Monitor errors | Worker → **Observability → Logs** (enabled in `wrangler.jsonc`). Note bodies, class codes and tokens are never logged. Live tail: `npx wrangler tail stjb-thanks` |
 | Class participation | Overview (refreshes every 15 s) and Classes. Over-quota classes show "32 submissions / 30 recommended maximum". |
 | Rotate a class code | Classes → **Rotate**. The old code stops working; students with drafts are asked for the new one and keep their answers. |
+| AI review | Admin → **AI review**: export pending notes with instructions, give them to an AI, paste its JSON reply back, check the preview, apply. See [docs/AI_REVIEW.md](docs/AI_REVIEW.md). |
 | Review workload | Review workload → select reviewers → **Distribute evenly**; **Rebalance pending** later; **Release pending** for someone who's away. |
 | Export notes | Print & export → build the A4 mosaic or keepsakes (preview first, then download). CSVs: Settings → Exports. |
 | Back up D1 | See schedule below. |

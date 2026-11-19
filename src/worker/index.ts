@@ -5,6 +5,7 @@ import { publicRoutes } from "./routes/public";
 import { reviewRoutes } from "./routes/review";
 import { adminNotes } from "./routes/admin-notes";
 import { adminManage } from "./routes/admin-manage";
+import { adminAi } from "./routes/admin-ai";
 import { runBackup } from "./backup";
 import type { Env } from "./env";
 import type { Me } from "../shared/types";
@@ -38,6 +39,7 @@ const admin = new Hono<AppEnv>();
 admin.use("*", requireRole("admin"));
 admin.route("/", adminNotes);
 admin.route("/", adminManage);
+admin.route("/", adminAi);
 app.route("/api/admin", admin);
 
 app.all("/api/*", () => {

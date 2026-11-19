@@ -53,7 +53,7 @@
 
 Measured in the development container on 2026-11-15:
 
-- Unit: 27 passed. Worker integration: 53 passed. E2E: 14 passed, 2 skipped (admin dashboard flow isn't run at phone width; the mobile reviewer test skips when no notes are assigned in that run).
+- Unit: 27 passed. Worker integration: 63 passed (incl. AI review export/import). E2E: 18 passed, 4 skipped (admin flows aren't run at phone width; the mobile reviewer test skips when nothing is assigned).
 - Load (`STUDENTS=300 CONCURRENCY=50`, one IP, 20% triple-click bursts): 436 submit requests → **300 submissions, 0 duplicate receipts, 0 rate-limited**, local p95 ≈ 0.6 s. This is the local Miniflare/D1 runtime on one machine, not a production benchmark. Production D1 serialises writes per database; at 300 students the expected write rate is far below its limits, but run the load script against **staging** (`BASE=https://thanks-staging...` needs Turnstile test keys) if you want hosted numbers.
 
 ## Running locally
