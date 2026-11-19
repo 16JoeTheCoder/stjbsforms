@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc -p tsconfig.json)",
+      "Bash(npx tsc -p tsconfig.worker.json)",
+      "Bash(npx tsc -p tsconfig.node.json)",
+      "Bash(npx vitest run --config vitest.config.ts)",
+      "Bash(npx vitest run --config vitest.worker.config.ts)",
+      "Bash(npx eslint .)",
+      "mcp__Cloudflare_Developer_Platform__search_cloudflare_documentation",
+      "mcp__github__pull_request_read"
+    ]
+  }
+}
