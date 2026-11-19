@@ -85,6 +85,10 @@ Status changes use optimistic concurrency: one batch inserts the `note_events` r
 
 Assignments: distribute = greedy least-loaded over unassigned pending notes; rebalance = keep each reviewer's oldest up to the target, move only the excess; release = return a reviewer's pending notes. Guards ensure only still-pending notes (and the expected current assignee) are touched; approved/trashed notes are never reassigned. Disabling a user releases their pending notes.
 
+## External AI review
+
+`/api/admin/ai-review/*` (admin only). An **export** returns pending notes with reviewer-safe fields only, and stores each note's `version` in `ai_review_exports`. An **import** parses the AI's JSON (`stjb-ai-review-v1`, zod-validated, fences tolerated) and returns a dry-run plan. With `apply: true` it writes `ai_review_imports` plus one `ai_review_decisions` row per decision. It then runs, in one D1 batch, guarded `INSERT … SELECT` history rows and `UPDATE`s that join on those decisions and require `status = 'pending' AND version = expected_version` and an active submission. Notes that people touched after the export are therefore never overwritten. "Unsure" adds the `ai_unsure` flag and keeps the note pending. Prompt text and format live in `src/shared/ai-review.ts`; see [docs/AI_REVIEW.md](docs/AI_REVIEW.md).
+
 ## Abuse controls (proportionate)
 
 - Turnstile on submit (server-verified action and hostname).

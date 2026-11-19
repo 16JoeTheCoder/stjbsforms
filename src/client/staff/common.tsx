@@ -128,6 +128,7 @@ export const FLAG_LABEL: Record<string, string> = {
   repeated_characters: "Repeated chars",
   repetitive_words: "Repetitive",
   duplicate_elsewhere: "Duplicate text",
+  ai_unsure: "AI unsure",
 };
 
 export function Flags({ flags }: { flags: string[] }) {

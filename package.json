@@ -4,10 +4,10 @@
   "description": "STJB Teacher's Day appreciation platform",
   "scripts": {
     "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "wrangler dev --port 8787 --local",
+    "dev:api": "wrangler dev --port 8787 --local --local-upstream localhost:8787",
     "dev:web": "vite",
     "build": "vite build",
-    "preview": "npm run build && wrangler dev --port 8787 --local",
+    "preview": "npm run build && wrangler dev --port 8787 --local --local-upstream localhost:8787",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.node.json",
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:worker",
@@ -21,7 +21,8 @@
     "db:migrate:staging": "wrangler d1 migrations apply DB --remote --env staging",
     "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
     "deploy:staging": "npm run build && wrangler deploy --env staging",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
   },
   "repository": {
     "type": "git",

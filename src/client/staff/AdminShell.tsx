@@ -3,6 +3,7 @@ import { Link, Route, Switch, useLocation } from "wouter";
 import clsx from "clsx";
 import {
   Award,
+  Bot,
   ClipboardList,
   FileText,
   Gauge,
@@ -31,12 +32,14 @@ import { PrintPage } from "./admin/PrintPage";
 import { UsersPage } from "./admin/UsersPage";
 import { SettingsPage } from "./admin/SettingsPage";
 import { AuditPage } from "./admin/AuditPage";
+import { AiReviewPage } from "./admin/AiReviewPage";
 
 const NAV = [
   { href: "/", label: "Overview", icon: Gauge },
   { href: "/notes", label: "Notes", icon: Inbox },
   { href: "/trash", label: "Trash", icon: Trash2 },
   { href: "/assignments", label: "Review workload", icon: ClipboardList },
+  { href: "/ai-review", label: "AI review", icon: Bot },
   { href: "/submissions", label: "Submissions", icon: FileText },
   { href: "/classes", label: "Classes", icon: GraduationCap },
   { href: "/teachers", label: "Teachers & coverage", icon: UserSquare2 },
@@ -128,6 +131,7 @@ export function AdminShell({ me }: { me: Me }) {
             <Route path="/notes">{() => <NotesBoard key="notes" />}</Route>
             <Route path="/trash">{() => <NotesBoard key="trash" preset={{ status: "trashed" }} title="Trash" />}</Route>
             <Route path="/assignments" component={AssignmentsPage} />
+            <Route path="/ai-review" component={AiReviewPage} />
             <Route path="/submissions" component={SubmissionsPage} />
             <Route path="/classes" component={ClassesPage} />
             <Route path="/teachers" component={TeachersPage} />
